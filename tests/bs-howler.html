@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Howler.js Core HTML5 Audio Tests</title>
+  <link rel="stylesheet" href="./css/styles.css">
+	var start = document.getElementById('start');
+</head>
+<body>
+  <div id="container">
+    <div id="label"></div>
+    <button class="button" id="start" disabled>LOADING...</button>
+    <div id="logo"></div>
+  </div>
+  <script src="../src/howler.core.js"></script>
+  <script>
+
+	window.HowlerGlobal.html5PoolSize = 4;
+
+	var sound1 = new Howl({
+	  src: ['wobble_1000Hz.mp3'],
+	  html5: true,
+	  mse: true,
+	  loop: true
+	});
+
+	sound1.once('load', function() {
+		start.removeAttribute('disabled');
+		start.innerHTML = 'BEGIN CORE TESTS';
+	});
+
+	// Listen to a click on the button to being the tests.
+	start.addEventListener('click', function() {
+		console.log("Loaded");
+		var id = sound1.play();
+		start.style.display = 'none';
+	}, false);
+  </script>
+</body>
+</html>
