@@ -298,7 +298,7 @@
       var self = this || Howler;
 
       // Only run this if Web Audio is supported and it hasn't already been unlocked.
-      if (self._audioUnlocked || !self.ctx) {
+      if (self._audioUnlocked || !self.ctx && !self._mse) {
         return;
       }
 
@@ -576,6 +576,7 @@
       self._autoplay = o.autoplay || false;
       self._format = (typeof o.format !== 'string') ? o.format : [o.format];
       self._html5 = o.html5 || false;
+      self._mse = o.mse || false;
       self._muted = o.mute || false;
       self._loop = o.loop || false;
       self._pool = o.pool || 5;
@@ -712,6 +713,7 @@
       // drop down to HTML5 Audio to avoid Mixed Content errors.
       if (window.location.protocol === 'https:' && url.slice(0, 5) === 'http:') {
         self._html5 = true;
+        //self._mse = false;
         self._webAudio = false;
       }
 
@@ -2249,7 +2251,28 @@
         self._node.addEventListener('ended', self._endFn, false);
 
         // Setup the new audio node.
-        self._node.src = parent._src;
+        if(parent._mse) {
+          parent._mediaSource = new MediaSource();
+          self._node.src = URL.createObjectURL(parent._mediaSource);
+          console.log("Create URL " + self._node.src);
+          parent._mediaSource.addEventListener('sourceopen', function() {
+            parent._sourceBuffer = parent._mediaSource.addSourceBuffer('audio/mpeg');
+            parent._sourceBuffer.addEventListener('update', function() {
+              console.log("onupdate event");
+              parent._mediaSource.endOfStream();
+
+              if (parent._state !== 'loaded') {
+                parent._state = 'loaded';
+                parent._emit('load');
+                parent._loadQueue();
+              }
+            });
+            loadBuffer(parent);
+          });
+        }
+        else
+          self._node.src = parent._src;
+
         self._node.preload = parent._preload === true ? 'auto' : parent._preload;
         self._node.volume = volume * Howler.volume();
 
@@ -2442,22 +2465,30 @@
     var error = function() {
       self._emit('loaderror', null, 'Decoding audio data failed.');
     };
+    
+    if(self._webAudio) {
+      // Load the sound on success.
+      var success = function(buffer) {
+        if (buffer && self._sounds.length > 0) {
+          cache[self._src] = buffer;
+          loadSound(self, buffer);
+        } else {
+          error();
+        }
+      };
 
-    // Load the sound on success.
-    var success = function(buffer) {
-      if (buffer && self._sounds.length > 0) {
-        cache[self._src] = buffer;
-        loadSound(self, buffer);
+      // Decode the buffer into an audio source.
+      if (typeof Promise !== 'undefined' && Howler.ctx.decodeAudioData.length === 1) {
+        Howler.ctx.decodeAudioData(arraybuffer).then(success).catch(error);
       } else {
-        error();
+        Howler.ctx.decodeAudioData(arraybuffer, success, error);
       }
-    };
-
-    // Decode the buffer into an audio source.
-    if (typeof Promise !== 'undefined' && Howler.ctx.decodeAudioData.length === 1) {
-      Howler.ctx.decodeAudioData(arraybuffer).then(success).catch(error);
-    } else {
-      Howler.ctx.decodeAudioData(arraybuffer, success, error);
+    }
+    else if(self._mse) {
+      // For mse we just store the raw buffer. This will be passed in to the MediaSource on play.
+      cache[self._src] = arraybuffer;
+      console.log("Loaded " + self._src);
+      self._sourceBuffer.appendBuffer(cache[self._src]);
     }
   }
 
