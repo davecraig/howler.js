@@ -2259,6 +2259,12 @@
             parent._sourceBuffer.addEventListener('update', function() {
               console.log("onupdate event");
               parent._mediaSource.endOfStream();
+              parent._duration = parent._mediaSource.duration;
+
+              // Setup a sprite if none is defined.
+              if (Object.keys(parent._sprite).length === 0) {
+                parent._sprite = {__default: [0, parent._duration * 1000]};
+              }
 
               if (parent._state !== 'loaded') {
                 parent._state = 'loaded';
@@ -2390,7 +2396,7 @@
       self._duration = cache[url].duration;
 
       // Load the sound into this Howl.
-      loadSound(self);
+      loadSound(self, cache[url]);
 
       return;
     }
@@ -2486,8 +2492,7 @@
     else if(Howler.mse) {
       // For mse we just store the raw buffer. This will be passed in to the MediaSource on play.
       cache[self._src] = arraybuffer;
-      console.log("Loaded " + self._src);
-      self._sourceBuffer.appendBuffer(cache[self._src]);
+      loadSound(self, arraybuffer);
     }
   }
 
@@ -2497,21 +2502,28 @@
    * @param  {Object} buffer The decoded buffer sound source.
    */
   var loadSound = function(self, buffer) {
-    // Set the duration.
-    if (buffer && !self._duration) {
-      self._duration = buffer.duration;
+    if(Howler.mse) {
+      // MSE will do the duration, sprite and event work in the MediaSource update handler
+      console.log("Loaded " + self._src);
+      self._sourceBuffer.appendBuffer(buffer);
     }
+    else {
+      // Set the duration.
+      if (buffer && !self._duration) {
+        self._duration = buffer.duration;
+      }
 
-    // Setup a sprite if none is defined.
-    if (Object.keys(self._sprite).length === 0) {
-      self._sprite = {__default: [0, self._duration * 1000]};
-    }
+      // Setup a sprite if none is defined.
+      if (Object.keys(self._sprite).length === 0) {
+        self._sprite = {__default: [0, self._duration * 1000]};
+      }
 
-    // Fire the loaded event.
-    if (self._state !== 'loaded') {
-      self._state = 'loaded';
-      self._emit('load');
-      self._loadQueue();
+      // Fire the loaded event.
+      if (self._state !== 'loaded') {
+        self._state = 'loaded';
+        self._emit('load');
+        self._loadQueue();
+      }
     }
   };
 
