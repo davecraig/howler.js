@@ -35,7 +35,8 @@
 
       // Pool of unlocked HTML5 Audio objects.
       self._html5AudioPool = [];
-      self.html5PoolSize = 10;
+      self.html5PoolSize = 4;
+	  self.mse = true;
 
       // Internal properties.
       self._codecs = {};
@@ -298,7 +299,7 @@
       var self = this || Howler;
 
       // Only run this if Web Audio is supported and it hasn't already been unlocked.
-      if (self._audioUnlocked || !self.ctx && !self._mse) {
+      if ((self._audioUnlocked || !self.ctx) || self.mse) {
         return;
       }
 
@@ -576,7 +577,6 @@
       self._autoplay = o.autoplay || false;
       self._format = (typeof o.format !== 'string') ? o.format : [o.format];
       self._html5 = o.html5 || false;
-      self._mse = o.mse || false;
       self._muted = o.mute || false;
       self._loop = o.loop || false;
       self._pool = o.pool || 5;
@@ -713,7 +713,6 @@
       // drop down to HTML5 Audio to avoid Mixed Content errors.
       if (window.location.protocol === 'https:' && url.slice(0, 5) === 'http:') {
         self._html5 = true;
-        //self._mse = false;
         self._webAudio = false;
       }
 
@@ -2251,7 +2250,7 @@
         self._node.addEventListener('ended', self._endFn, false);
 
         // Setup the new audio node.
-        if(parent._mse) {
+        if(Howler.mse) {
           parent._mediaSource = new MediaSource();
           self._node.src = URL.createObjectURL(parent._mediaSource);
           console.log("Create URL " + self._node.src);
@@ -2484,7 +2483,7 @@
         Howler.ctx.decodeAudioData(arraybuffer, success, error);
       }
     }
-    else if(self._mse) {
+    else if(Howler.mse) {
       // For mse we just store the raw buffer. This will be passed in to the MediaSource on play.
       cache[self._src] = arraybuffer;
       console.log("Loaded " + self._src);
